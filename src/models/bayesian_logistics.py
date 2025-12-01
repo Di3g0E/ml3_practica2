@@ -2,7 +2,7 @@ import numpy as np
 
 class BayesianLogisticRegression:
     """
-    Implementa un modelo de Regresión Logística Bayesiana utilizando el algoritmo de Metropolis-Hastings (MCMC) para clasificación binaria.
+    Clase del modelo de Regresión Logística Bayesiana utilizando el algoritmo de Metropolis-Hastings (MCMC) para clasificación binaria.
 
     Este modelo permite:
     - Estimar la probabilidad de muerte de un nuevo paciente.
@@ -10,7 +10,7 @@ class BayesianLogisticRegression:
     - Estimar la incertidumbre en los parámetros aprendidos.
     """
 
-    def __init__(self, num_samples=5000, step_size=0.01, burn_in=0.1, seed=42):
+    def __init__(self, num_samples=5000, step_size=0.01, burn_in=0.1, seed=42, init="random"):
         """
         Inicializa el modelo bayesiano.
 
@@ -18,8 +18,9 @@ class BayesianLogisticRegression:
         ----------
         num_samples : Número total de muestras MCMC a generar.
         step_size : Desviación estándar de la propuesta gaussiana (controla cuánto exploramos).
-        burn_in : Número de muestras iniciales a descartar (fase de calentamiento para olvidar el estado inicial).
+        burn_in : proporción de muestras iniciales a descartar (fase de calentamiento para olvidar el estado inicial).
         seed : Semilla para reproducibilidad.
+        init : Estrategia de inicialización ('zero' o 'random').
         """
         self.num_samples = num_samples
         self.step_size = step_size
@@ -28,6 +29,7 @@ class BayesianLogisticRegression:
         else:
             self.burn_in = int(burn_in)
         self.seed = seed
+        self.init = init
         self.samples_ = None
         self.mean_weights_ = None
 
@@ -39,13 +41,10 @@ class BayesianLogisticRegression:
 
     def _log_likelihood(self, X, y, weights):
         """
-        Calcula la log-verosimilitud (log-likelihood) de los datos dados los pesos actuales.
-        
-        Se asume que las etiquetas y siguen una distribución de Bernoulli con probabilidad p = sigmoid(X * weights).
+        Calcula la verosimilitud de los datos dados los pesos actuales.
         """
         z = np.dot(X, weights)
         p = self._sigmoid(z)
-        # Se añade 1e-9 para evitar log(0)
         return np.sum(y * np.log(p + 1e-9) + (1 - y) * np.log(1 - p + 1e-9))
 
     def fit(self, X, y):
@@ -53,7 +52,7 @@ class BayesianLogisticRegression:
         Ajusta el modelo a los datos usando MCMC con Metropolis-Hastings.
 
         El algoritmo funciona de la siguiente manera:
-        1. Se inicia con pesos aleatorios (o ceros).
+        1. Se inicia con pesos aleatorios.
         2. En cada iteración, se propone un nuevo conjunto de pesos perturbando los actuales con ruido gaussiano.
         3. Se calcula la probabilidad de aceptación comparando la verosimilitud de la propuesta vs la actual.
         4. Si se acepta, actualizamos los pesos; si no, mantenemos los anteriores.
@@ -67,19 +66,19 @@ class BayesianLogisticRegression:
         np.random.seed(self.seed)
         n_features = X.shape[1]
         
-        # Inicialización de pesos en cero
-        current_weights = np.zeros(n_features)
+        # Inicialización de pesos
+        if self.init == "zero":
+            current_weights = np.zeros(n_features)
+        else:
+            current_weights = np.random.normal(loc=0.0, scale=1.0, size=n_features)
+            
         current_ll = self._log_likelihood(X, y, current_weights)
 
         samples = []
         for _ in range(self.num_samples):
-            # Paso de propuesta: añadir ruido gaussiano a los pesos actuales
             proposal = current_weights + np.random.normal(0, self.step_size, size=n_features)
             proposal_ll = self._log_likelihood(X, y, proposal)
 
-            # Criterio de aceptación de Metropolis
-            # ratio = P(D|w_new) / P(D|w_old)  (asumiendo prior uniforme)
-            # log_ratio = log_likelihood_new - log_likelihood_old
             log_ratio = proposal_ll - current_ll
             accept_prob = min(1, np.exp(log_ratio))
             

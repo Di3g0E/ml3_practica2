@@ -17,19 +17,17 @@ print("Dividiendo datos...")
 df_train, df_val, df_test = split_data(df, test_size=0.2, val_ratio=0.5, seed=SEED)
 
 # 3. Separar características (X) y etiquetas (y)
-# Identificamos 'DEATH_EVENT' como la columna objetivo
 X_train, y_train = split_col(df_train, col_name="DEATH_EVENT")
 X_val, y_val = split_col(df_val, col_name="DEATH_EVENT")
 
 # 4. Preprocesamiento: Normalización de datos
-# Es crucial normalizar para que MCMC converja mejor y los coeficientes sean comparables
 print("Normalizando datos...")
 scaler, X_train_norm = fit_scaler(X_train=X_train)
 X_val_norm = apply_scaler(scaler=scaler, X=X_val)
 
 # 5. Definición y entrenamiento de modelo de Regresión Logística Bayesiana
 print(f"Entrenando modelo Bayesiano con {N_SAMPLES} muestras...")
-model = BayesianLogisticRegression(num_samples=N_SAMPLES, step_size=0.02, burn_in=0.1, seed=SEED)
+model = BayesianLogisticRegression(num_samples=N_SAMPLES, step_size=0.02, burn_in=0.1, seed=SEED, init="random")
 model.fit(X_train_norm, y_train)
 
 # 6. Predicción sobre el conjunto de validación

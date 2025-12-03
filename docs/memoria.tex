@@ -1,0 +1,147 @@
+\documentclass[a4paper,12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{listings}
+\usepackage{graphicx}
+\usepackage{tcolorbox}
+\usepackage{color}
+\usepackage[left=2cm,right=2cm,top=3.5cm,bottom=3.5cm]{geometry}
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=2
+}
+\lstset{style=mystyle}
+% Portada
+\title{\Huge \textbf{Práctica 2: Regresión Logística Bayesiana para Predicción de Fallo Cardíaco}}
+\author{Diego Esclarín Fernández}
+\date{\today}
+
+\begin{document}
+
+\begin{titlepage}
+    \maketitle
+
+    \begin{figure}[h]
+        \centering
+        \includegraphics[width=0.6\textwidth]{Logo_URJC.png}
+        \label{fig:ejemplo}
+    \end{figure}
+\end{titlepage}
+\tableofcontents
+\newpage
+
+\section{Introducción}
+El objetivo de esta práctica es desarrollar un modelo de \textbf{Regresión Logística Bayesiana} para predecir la mortalidad en pacientes con insuficiencia cardíaca. A diferencia de la regresión logística clásica, el enfoque bayesiano nos permite estimar no solo los coeficientes del modelo, sino también la \textit{incertidumbre} de cada uno de ellos.
+
+\section{Metodología}
+
+\subsection{Regresión Logística Bayesiana}
+En la regresión logística, modelamos la probabilidad de que una variable binaria \texttt{DEATH\_EVENT} sea 1 dado un vector de características. La función de enlace utilizada es la sigmoide:
+\[
+P(y=1|X, w) = \sigma(X^T w) = \frac{1}{1 + e^{-X^T w}}
+\]
+Donde $w$ son los pesos o coeficientes del modelo.
+
+En la regresión logística Gaussiana, tratamos $w$ como variables aleatorias con una distribución $P(w)$, normalmente Gaussiana. Calculamos la distribución a posteriori $P(w|D)$ con los datos $D = \{(X_i, y_i)\}$, utilizando el Teorema de Bayes:
+\[
+P(w|D) \propto P(D|w) P(w)
+\]
+
+\subsection{Algoritmo Metropolis-Hastings}
+Como la integral para calcular la posterior exacta no se puede calcular, utilizamos métodos de Monte Carlo Markov Chain (MCMC).
+Este algoritmo nos permite obtener muestras de la distribución a posteriori siguiendo estos pasos:
+\begin{enumerate}
+    \item Inicializar los pesos $w$ aleatoriamente (funciona un poco mejor que inicializarlo a cero como se puede comprobar al ejecutar el experimento).
+    \item Proponer un nuevo estado $w'$ añadiendo ruido gaussiano: $w' = w + \epsilon$.
+    \item Calcular la razón de aceptación $\alpha = \min(1, \frac{P(D|w')}{P(D|w)})$.
+    \item Aceptar $w'$ con probabilidad $\alpha$.
+    \item Repetir el proceso por $N$ iteraciones.
+\end{enumerate}
+
+\newpage
+
+\section{Descripción del Dataset}
+El conjunto de datos utilizado es \texttt{fallo\_cardiaco.csv}, que contiene registros clínicos de pacientes.
+\begin{itemize}
+    \item \textbf{Total de muestras:} 299 pacientes.
+    \item \textbf{Variable objetivo:} \texttt{DEATH\_EVENT} (1: Fallecido, 0: Sobrevivió).
+    \item \textbf{Características principales:} Edad, fracción de eyección, creatinina sérica, sodio sérico, tiempo de seguimiento, entre otras.
+\end{itemize}
+
+En el proceso se normalizan las variables numéricas para facilitar la convergencia del algoritmo MCMC.
+
+\section{Implementación}
+El proyecto se estructura de la siguiente manera:
+\begin{itemize}
+    \item \texttt{src/models/bayesian\_logistics.py}: Contiene la clase \texttt{BayesianLogisticRegression} que implementa el algoritmo Metropolis-Hastings.
+    \item \texttt{src/utils/}: Módulos para carga de datos, preprocesamiento y división del dataset.
+    \item \texttt{train.py}: Script principal que orquesta la carga y entrenamiento del modelo.
+    \item \texttt{test.py}: Script que evalúa el modelo entrenado.
+\end{itemize}
+
+\section{Resultados}
+El modelo fue entrenado con 6000 muestras y un periodo de \textit{burn-in} para asegurar la convergencia.
+
+\newpage
+
+\subsection{Interpretación de Coeficientes}
+A continuación se presentan los coeficientes medios aprendidos por el modelo y su desviación estándar (incertidumbre):
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrr}
+\toprule
+\textbf{Variable} & \textbf{Influencia (Media)} & \textbf{Incertidumbre (Std)} \\
+\midrule
+Age & 0.56 & 0.23 \\
+Anaemia & -0.08 & 0.17 \\
+Creatinine Phosphokinase & 0.16 & 0.18 \\
+Diabetes & 0.1 & 0.22 \\
+Ejection Fraction & -0.68 & 0.18 \\
+High Blood Pressure & -0.05 & 0.18 \\
+Platelets & -0.01 & 0.18 \\
+Serum Creatinine & 1.17 & 0.47 \\
+Serum Sodium & -0.12 & 0.16 \\
+Sex & -0.31 & 0.16 \\
+Smoking & 0.04 & 0.15 \\
+Time & -1.36 & 0.19 \\
+\bottomrule
+\end{tabular}
+\caption{Resumen de los parámetros del modelo posterior.}
+\end{table}
+
+\subsection{Análisis}
+\begin{itemize}
+    \item \textbf{Factores de Riesgo:} La \textbf{Creatinina Sérica} (1.17) y la \textbf{Edad} (0.56) son los factores que más aumentan la probabilidad de muerte. Sin embargo, la creatinina tiene una alta incertidumbre (0.47), lo que sugiere variabilidad en su impacto entre pacientes.
+    \item \textbf{Factores Protectores:} El \textbf{Tiempo} de seguimiento (-1.36) y la \textbf{Fracción de Eyección} (-0.68) tienen coeficientes negativos fuertes, indicando que valores altos en estas variables reducen significativamente el riesgo.
+    \item \textbf{Variables Irrelevantes:} Variables como \textit{Platelets} y \textit{Smoking} tienen coeficientes cercanos a cero, sugiriendo poca influencia en este modelo específico.
+\end{itemize}
+
+\section{Conclusión}
+El modelo bayesiano ha permitido identificar los principales factores de riesgo asociados al fallo cardíaco. La capacidad de estimar la incertidumbre es una ventaja clave, permitiéndonos saber no solo qué variables son importantes, sino también qué tan seguros estamos de esa importancia. Aunque algunos resultados como que si fumar es un factor irrelevante para este análisis sea contradictorio con el conocimiento general. \\ \\
+Con estos datos el modelo tiene un accuracy del 83.33 \%.
+
+\end{document}
